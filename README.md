@@ -41,11 +41,15 @@ All original bilingual_book_maker features remain fully functional.
 ## Prerequisites
 
 ### Required
-- Python 3.10+
+- Python 3.10+ (tested with 3.12)
 - Anthropic API key with access to Claude Sonnet 4 or Opus 4
 
 ### Optional
 - Docker & Docker Compose (for containerized deployment)
+
+### Platform Notes
+- **Linux/macOS**: Full support including shell scripts (`scripts/*.sh`) and `make` targets
+- **Windows**: Use `python make_book.py` directly (shell scripts require WSL/Git Bash)
 
 ## Installation
 
@@ -116,10 +120,12 @@ python make_book.py --book_name book.epub -m 3pass-sonnet \
 
 ### Environment Variables
 ```bash
-export ANTHROPIC_API_KEY=sk-ant-XXXXX    # Required
+export ANTHROPIC_API_KEY=sk-ant-XXXXX    # Required for 3pass models
 # or
-export BBM_CLAUDE_API_KEY=sk-ant-XXXXX   # Alternative
+export BBM_CLAUDE_API_KEY=sk-ant-XXXXX   # Alternative (checked first)
 ```
+
+For 3pass models, the key is resolved in order: `--claude_key` flag → `BBM_CLAUDE_API_KEY` → `ANTHROPIC_API_KEY`.
 
 ### Models
 
@@ -309,4 +315,4 @@ This project is licensed under the MIT License — see [LICENSE](LICENSE) for de
 
 **Status:** Active Development
 **Version:** 1.0.0
-**Last Updated:** 2025-02-10
+**Last Updated:** 2026-02-10

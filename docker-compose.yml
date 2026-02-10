@@ -27,41 +27,41 @@ services:
 # ─── Examples ────────────────────────────────────────────────────────────────
 #
 # 1. Test on 5 paragraphs first (always do this!):
-#    docker compose -f docker-compose.3pass.yml run --rm translator \
+#    docker compose run --rm translator \
 #      --book_name /books/input.epub \
 #      -m 3pass-sonnet \
 #      --single_translate --language de --use_context \
 #      --test --test_num 5
 #
 # 2. Generic EN→DE (no profile, default literary style):
-#    docker compose -f docker-compose.3pass.yml run --rm translator \
+#    docker compose run --rm translator \
 #      --book_name /books/input.epub \
 #      -m 3pass-sonnet \
 #      --single_translate --language de --use_context
 #
 # 3. EN→DE with Lovecraft profile (Opus for best quality):
-#    docker compose -f docker-compose.3pass.yml run --rm translator \
+#    docker compose run --rm translator \
 #      --book_name /books/lovecraft.epub \
 #      -m 3pass-opus \
 #      --single_translate --language de --use_context \
 #      --translation-profile /app/profiles/lovecraft.json
 #
 # 4. EN→FR sci-fi:
-#    docker compose -f docker-compose.3pass.yml run --rm translator \
+#    docker compose run --rm translator \
 #      --book_name /books/scifi_novel.epub \
 #      -m 3pass-sonnet \
 #      --single_translate --language fr --use_context \
 #      --translation-profile /app/profiles/scifi.json
 #
 # 5. Budget mode — skip review (pass 1 only, ~40% cheaper):
-#    docker compose -f docker-compose.3pass.yml run --rm translator \
+#    docker compose run --rm translator \
 #      --book_name /books/input.epub \
 #      -m 3pass-sonnet \
 #      --single_translate --language de --use_context \
 #      --skip-review
 #
 # 6. Resume after interruption:
-#    docker compose -f docker-compose.3pass.yml run --rm translator \
+#    docker compose run --rm translator \
 #      --book_name /books/input.epub \
 #      -m 3pass-opus \
 #      --single_translate --language de --use_context \
