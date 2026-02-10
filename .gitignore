@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Environment
+.env
+.env.*
+.venv/
+venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# AI tools
+.claude/
+.cursor/
+.cursorrules
+.github/copilot-instructions.md
+CLAUDE.md
+
+# Project
+books/
+output/
+*.epub
+!test_books/*.epub
+pdm.lock

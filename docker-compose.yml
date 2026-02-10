@@ -1,0 +1,71 @@
+services:
+  translator:
+    build: .
+    container_name: book-translator-3pass
+    init: true
+    environment:
+      - BBM_CLAUDE_API_KEY=${ANTHROPIC_API_KEY}
+    volumes:
+      - ./books:/books
+      - ./output:/output
+      - ./examples/profiles:/app/profiles:ro
+    entrypoint: ["python3", "make_book.py"]
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 512M
+
+# ─── Usage ───────────────────────────────────────────────────────────────────
+#
+# Setup:
+#   mkdir -p books output
+#   cp your_book.epub books/input.epub
+#   export ANTHROPIC_API_KEY=sk-ant-XXXXX
+#
+# ─── Examples ────────────────────────────────────────────────────────────────
+#
+# 1. Test on 5 paragraphs first (always do this!):
+#    docker compose -f docker-compose.3pass.yml run --rm translator \
+#      --book_name /books/input.epub \
+#      -m 3pass-sonnet \
+#      --single_translate --language de --use_context \
+#      --test --test_num 5
+#
+# 2. Generic EN→DE (no profile, default literary style):
+#    docker compose -f docker-compose.3pass.yml run --rm translator \
+#      --book_name /books/input.epub \
+#      -m 3pass-sonnet \
+#      --single_translate --language de --use_context
+#
+# 3. EN→DE with Lovecraft profile (Opus for best quality):
+#    docker compose -f docker-compose.3pass.yml run --rm translator \
+#      --book_name /books/lovecraft.epub \
+#      -m 3pass-opus \
+#      --single_translate --language de --use_context \
+#      --translation-profile /app/profiles/lovecraft.json
+#
+# 4. EN→FR sci-fi:
+#    docker compose -f docker-compose.3pass.yml run --rm translator \
+#      --book_name /books/scifi_novel.epub \
+#      -m 3pass-sonnet \
+#      --single_translate --language fr --use_context \
+#      --translation-profile /app/profiles/scifi.json
+#
+# 5. Budget mode — skip review (pass 1 only, ~40% cheaper):
+#    docker compose -f docker-compose.3pass.yml run --rm translator \
+#      --book_name /books/input.epub \
+#      -m 3pass-sonnet \
+#      --single_translate --language de --use_context \
+#      --skip-review
+#
+# 6. Resume after interruption:
+#    docker compose -f docker-compose.3pass.yml run --rm translator \
+#      --book_name /books/input.epub \
+#      -m 3pass-opus \
+#      --single_translate --language de --use_context \
+#      --resume
+#
+# Output:
+#   Translated .epub appears in ./output/ (or same directory as input)

@@ -1,0 +1,15 @@
+{
+  "name": "Standard Literary",
+  "description": "General-purpose profile for literary English to German translation. Produces natural, fluent literary German while preserving the author's voice and style.",
+
+  "style_instructions": "- Erzeuge natuerliches, fliessendes literarisches Deutsch\n- Bewahre den Stil und die Stimme des Autors\n- Uebersetze Redewendungen sinngemaess, nicht woertlich\n- Erhalte den Tonfall des Originals (formell, informell, humorvoll, etc.)\n- Bewahre Satzrhythmus und -laenge wo moeglich\n- Verwende natuerliche deutsche Satzstrukturen, keine Anglizismen",
+
+  "protected_nouns": [],
+  "glossary_seed": {},
+
+  "temperature": { "translate": 0.3, "review": 0.4, "refine": 0.2 },
+
+  "min_review_chars": 300,
+  "context_update_interval": 15,
+  "glossary_update_interval": 20
+}

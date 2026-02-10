@@ -1,0 +1,15 @@
+{
+  "name": "High Fantasy",
+  "description": "For epic fantasy (Tolkien, Martin, Sanderson, etc.). Preserves formal/archaic register for world-building while keeping action fluid.",
+
+  "style_instructions": "- Verwende gehobeneres Deutsch fuer Erzaehlung und Weltenbau\n- Bewahre den epischen, majestaetischen Tonfall\n- Dialoge koennen natuerlicher und direkter sein\n- Erhalte erfundene Begriffe und Eigennamen exakt wie im Original\n- Verwende fuer archaische Passagen altertuemliches Deutsch\n- Kampfszenen und Actionsequenzen bleiben knapp und dynamisch\n- Titel und Anreden kontextgerecht uebersetzen (Lord, Lady, Sir, etc.)",
+
+  "protected_nouns": [],
+  "glossary_seed": {},
+
+  "temperature": { "translate": 0.3, "review": 0.4, "refine": 0.2 },
+
+  "min_review_chars": 300,
+  "context_update_interval": 15,
+  "glossary_update_interval": 15
+}

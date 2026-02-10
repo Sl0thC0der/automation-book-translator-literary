@@ -1,0 +1,15 @@
+{
+  "name": "Non-Fiction / Technical",
+  "description": "For technical books, manuals, popular science, and non-fiction. Prioritizes accuracy and clarity.",
+
+  "style_instructions": "- Praezision und Klarheit haben hoechste Prioritaet\n- Verwende standardmaessige deutsche Fachsprache\n- Technische Begriffe konsistent uebersetzen, englische Fachbegriffe in Klammern beim ersten Auftreten\n- Kurze, klare Saetze bevorzugen\n- Passivkonstruktionen wo im Deutschen ueblich beibehalten\n- Aufzaehlungen und Strukturierungen exakt beibehalten\n- Code-Beispiele, Variablennamen, Befehle NIEMALS uebersetzen",
+
+  "protected_nouns": [],
+  "glossary_seed": {},
+
+  "temperature": { "translate": 0.2, "review": 0.3, "refine": 0.15 },
+
+  "min_review_chars": 500,
+  "context_update_interval": 25,
+  "glossary_update_interval": 10
+}

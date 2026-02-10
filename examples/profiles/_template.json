@@ -1,0 +1,38 @@
+{
+  "_comment": "Translation Profile Template — copy and customize for your book/genre.",
+
+  "name": "My Custom Profile",
+  "description": "Describe what this profile is for.",
+
+  "source_language": "English",
+  "_source_language_comment": "Optional. Defaults to English. Set to the source language of your book.",
+
+  "style_instructions": "Instructions for the translator about style, tone, vocabulary.\nEach line is a separate instruction.\nWrite instructions in the TARGET language for best results.\n\nExamples:\n- Verwende formelles / informelles Deutsch\n- Bewahre den humorvollen / ernsten Tonfall\n- Erhalte die kurzen, knappen Saetze des Autors",
+
+  "protected_nouns": [
+    "DELETE_THESE_EXAMPLES_and_add_your_own",
+    "Character_names_go_here",
+    "Place_names_go_here"
+  ],
+
+  "glossary_seed": {
+    "_comment": "Pre-seeded translations for key terms. Model will also auto-discover more.",
+    "example_source_term": "example_target_term"
+  },
+
+  "temperature": {
+    "_comment": "Lower = more consistent/literal, Higher = more creative. Range: 0.0 - 1.0",
+    "translate": 0.3,
+    "review": 0.4,
+    "refine": 0.2
+  },
+
+  "min_review_chars": 300,
+  "_min_review_chars_comment": "Paragraphs shorter than this get pass-1 only (no review). Lower = more reviews = better quality but higher cost.",
+
+  "context_update_interval": 15,
+  "_context_comment": "Update rolling plot summary every N translate() calls. Lower = better consistency but higher cost.",
+
+  "glossary_update_interval": 20,
+  "_glossary_comment": "Extract new glossary terms every N translate() calls. Lower = better consistency but higher cost."
+}

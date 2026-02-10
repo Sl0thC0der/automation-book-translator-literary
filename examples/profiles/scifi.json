@@ -1,0 +1,22 @@
+{
+  "name": "Science Fiction",
+  "description": "For hard and soft science fiction. Balances technical precision with literary prose.",
+
+  "style_instructions": "- Verwende praezise, klare Sprache fuer technische/wissenschaftliche Passagen\n- Erhalte den Tonfall des Originals (nuechterner Hard-SF vs. lyrischer Soft-SF)\n- Technische Fachbegriffe konsistent uebersetzen, etablierte deutsche SF-Begriffe bevorzugen\n- Erfundene Technologie-Begriffe beibehalten oder kontextgerecht eindeutschen\n- Dialoge natuerlich und zeitgemaess halten\n- Erzaehlperspektive und Zeitform exakt beibehalten",
+
+  "protected_nouns": [],
+
+  "glossary_seed": {
+    "FTL": "UEL (Ueberlichtgeschwindigkeit)",
+    "warp drive": "Warp-Antrieb",
+    "hyperspace": "Hyperraum",
+    "ansible": "Ansible",
+    "terraforming": "Terraforming"
+  },
+
+  "temperature": { "translate": 0.3, "review": 0.4, "refine": 0.2 },
+
+  "min_review_chars": 300,
+  "context_update_interval": 15,
+  "glossary_update_interval": 20
+}

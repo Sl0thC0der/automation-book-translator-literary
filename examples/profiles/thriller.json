@@ -1,0 +1,15 @@
+{
+  "name": "Thriller / Crime",
+  "description": "For crime fiction, spy novels, and thrillers. Preserves pacing, tension, and punchy dialogue.",
+
+  "style_instructions": "- Erhalte das straffe Tempo und die Spannung des Originals\n- Halte Saetze in Actionszenen kurz, direkt und wirkungsvoll\n- Dialoge muessen natuerlich und scharf klingen\n- Bewahre Cliffhanger und Spannungsboegen an Kapitel-/Abschnittsgrenzen\n- Uebersetze Slang und Umgangssprache in natuerliche deutsche Entsprechungen\n- Technische Details (Waffen, Verfahren, Orte) muessen korrekt sein\n- Innere Monologe bewahren exakt die Stimme des Charakters",
+
+  "protected_nouns": [],
+  "glossary_seed": {},
+
+  "temperature": { "translate": 0.3, "review": 0.4, "refine": 0.2 },
+
+  "min_review_chars": 300,
+  "context_update_interval": 15,
+  "glossary_update_interval": 20
+}
