@@ -40,6 +40,7 @@ class EPUBBookLoader(BaseBookLoader):
         temperature=1.0,
         source_lang="auto",
         parallel_workers=1,
+        progress_callback=None,
     ):
         self.epub_name = epub_name
         self.new_epub = epub.EpubBook()
@@ -53,6 +54,7 @@ class EPUBBookLoader(BaseBookLoader):
             source_lang=source_lang,
             **prompt_config_to_kwargs(prompt_config),
         )
+        self.progress_callback = progress_callback
         self.is_test = is_test
         self.test_num = test_num
         self.translate_tags = "p"
@@ -243,6 +245,8 @@ class EPUBBookLoader(BaseBookLoader):
         self.helper.insert_trans(
             p, new_p.string, self.translation_style, self.single_translate
         )
+        if self.progress_callback:
+            self.progress_callback("paragraph_complete", {"index": index})
         index += 1
 
         if thread_safe:
@@ -972,10 +976,21 @@ class EPUBBookLoader(BaseBookLoader):
                 if len(document_items) == 1 and self.enable_parallel:
                     print(f"📄 Single chapter detected - using sequential processing")
 
-                for item in document_items:
+                for chapter_idx, item in enumerate(document_items):
+                    if self.progress_callback:
+                        self.progress_callback("chapter_start", {
+                            "chapter_file": item.file_name,
+                            "chapter_index": chapter_idx,
+                            "total_chapters": len(document_items),
+                        })
                     index = self.process_item(
                         item, index, p_to_save_len, pbar, new_book, trans_taglist
                     )
+                    if self.progress_callback:
+                        self.progress_callback("chapter_end", {
+                            "chapter_file": item.file_name,
+                            "chapter_index": chapter_idx,
+                        })
 
                 if self.accumulated_num > 1:
                     name, _ = os.path.splitext(self.epub_name)
@@ -1056,3 +1071,69 @@ class EPUBBookLoader(BaseBookLoader):
                 pickle.dump(self.p_to_save, f)
         except Exception:
             raise Exception("can not save resume file")
+
+    # ─── Chapter Extraction API ──────────────────────────────────────────
+
+    @staticmethod
+    def extract_chapter_paragraphs(epub_path, chapter_filename=None):
+        """Extract paragraphs from an epub file, optionally filtering to a specific chapter.
+
+        Returns: {
+            "chapters": [
+                {"filename": "ch01.xhtml", "paragraphs": ["para 1", ...]},
+                ...
+            ],
+            "total_paragraphs": int,
+        }
+        """
+        book = epub.read_epub(epub_path)
+        result = {"chapters": [], "total_paragraphs": 0}
+
+        for item in book.get_items_of_type(ITEM_DOCUMENT):
+            if chapter_filename and item.file_name != chapter_filename:
+                continue
+            soup = bs(item.content, "html.parser")
+            paragraphs = []
+            for p in soup.findAll("p"):
+                text = p.get_text().strip()
+                if text and not EPUBBookLoader._is_special_text(text):
+                    paragraphs.append(text)
+            result["chapters"].append({
+                "filename": item.file_name,
+                "paragraphs": paragraphs,
+            })
+            result["total_paragraphs"] += len(paragraphs)
+
+        return result
+
+    @staticmethod
+    def replace_chapter_translation(epub_path, chapter_filename, translated_paragraphs, output_path=None):
+        """Replace translated paragraphs in a specific chapter of an epub.
+
+        Args:
+            epub_path: Path to the epub file
+            chapter_filename: Which chapter to replace (e.g. "ch01.xhtml")
+            translated_paragraphs: New translated text for each paragraph
+            output_path: Where to save (default: overwrite epub_path)
+
+        Returns: Output file path
+        """
+        book = epub.read_epub(epub_path)
+        output = output_path or epub_path
+
+        for item in book.get_items_of_type(ITEM_DOCUMENT):
+            if item.file_name != chapter_filename:
+                continue
+            soup = bs(item.content, "html.parser")
+            p_tags = [p for p in soup.findAll("p")
+                      if p.get_text().strip() and not EPUBBookLoader._is_special_text(p.get_text())]
+
+            for i, p in enumerate(p_tags):
+                if i < len(translated_paragraphs):
+                    p.string = translated_paragraphs[i]
+
+            item.content = soup.encode()
+            break
+
+        epub.write_epub(output, book, {})
+        return output

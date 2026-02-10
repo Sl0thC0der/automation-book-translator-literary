@@ -31,7 +31,9 @@ import json
 import os
 import time
 import atexit
+from dataclasses import dataclass, field, asdict
 from threading import Lock
+from typing import Callable, Optional, Any
 from rich import print as rprint
 
 from .base_translator import Base
@@ -42,6 +44,53 @@ DEFAULT_MIN_REVIEW_CHARS = 300
 DEFAULT_CONTEXT_INTERVAL = 15
 DEFAULT_GLOSSARY_INTERVAL = 20
 PARA_DELIMITER = "|||PARA|||"
+
+# ─── Data Classes ─────────────────────────────────────────────────────────────
+
+
+@dataclass
+class TranslationResult:
+    """Structured result from a translation call."""
+    text: str
+    passes_used: int
+    quality_ok: bool
+    review_text: str = ""
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cache_read_tokens: int = 0
+    cache_create_tokens: int = 0
+    cost_estimate: float = 0.0
+
+
+@dataclass
+class ChunkEvent:
+    """Event fired after each chunk is processed."""
+    chunk_number: int
+    original_text: str
+    translated_text: str
+    passes_used: int
+    quality_ok: bool
+    is_batch: bool
+    paragraph_count: int
+
+
+@dataclass
+class TranslationStats:
+    """Snapshot of translator statistics."""
+    total_requests: int = 0
+    total_input_tokens: int = 0
+    total_output_tokens: int = 0
+    total_cache_read_tokens: int = 0
+    total_cache_create_tokens: int = 0
+    pass1_only_count: int = 0
+    full_3pass_count: int = 0
+    reviews_ok: int = 0
+    reviews_fixed: int = 0
+    chunk_counter: int = 0
+    glossary_terms: int = 0
+    cost_estimate: float = 0.0
+    cost_without_cache: float = 0.0
+
 
 # ─── Prompt Templates ────────────────────────────────────────────────────────
 # Use {language} and {source_language} so they adapt to any language pair.
@@ -220,8 +269,39 @@ class Claude3Pass(Base):
 
         self._glossary_lock = Lock()
 
+        # Internal tracking for translate_rich()
+        self._last_passes_used = 0
+        self._last_quality_ok = True
+        self._last_review_text = ""
+
+        # Event hooks
+        self._hooks: dict[str, list[Callable]] = {
+            "on_chunk_complete": [],
+            "on_pass_complete": [],
+            "on_glossary_update": [],
+            "on_context_update": [],
+            "on_error": [],
+            "on_stats": [],
+        }
+
         # Print final stats on exit
         atexit.register(self._print_final_stats)
+
+    # ─── Event Hooks ─────────────────────────────────────────────────────
+
+    def on(self, event: str, callback: Callable) -> None:
+        """Register an event hook. Usage: translator.on('on_chunk_complete', my_fn)"""
+        if event not in self._hooks:
+            raise ValueError(f"Unknown event: {event}. Valid: {list(self._hooks.keys())}")
+        self._hooks[event].append(callback)
+
+    def _fire(self, event: str, *args, **kwargs) -> None:
+        """Fire all registered hooks for an event (errors logged, not raised)."""
+        for hook in self._hooks.get(event, []):
+            try:
+                hook(*args, **kwargs)
+            except Exception as e:
+                rprint(f"  [red]Hook error ({event}): {e}[/red]")
 
     # ─── Helpers ──────────────────────────────────────────────────────────
 
@@ -296,7 +376,7 @@ class Claude3Pass(Base):
     # ─── Main Entry Point ────────────────────────────────────────────────
 
     def translate(self, text):
-        """Called by epub_loader per paragraph or per block."""
+        """Called by epub_loader per paragraph or per block. Returns plain string."""
         self.chunk_counter += 1
         is_batch = "\n" in text.strip()
 
@@ -306,13 +386,103 @@ class Claude3Pass(Base):
             return self._translate_pass1_only(text)
         return self._translate_3pass(text)
 
+    # ─── Structured API ──────────────────────────────────────────────────
+
+    def translate_rich(self, text: str) -> TranslationResult:
+        """Like translate() but returns structured TranslationResult."""
+        tokens_before = (
+            self.total_input_tokens, self.total_output_tokens,
+            self.total_cache_read_tokens, self.total_cache_create_tokens,
+        )
+
+        translated = self.translate(text)
+
+        tokens_after = (
+            self.total_input_tokens, self.total_output_tokens,
+            self.total_cache_read_tokens, self.total_cache_create_tokens,
+        )
+
+        delta = tuple(a - b for a, b in zip(tokens_after, tokens_before))
+
+        return TranslationResult(
+            text=translated,
+            passes_used=self._last_passes_used,
+            quality_ok=self._last_quality_ok,
+            review_text=self._last_review_text,
+            input_tokens=delta[0],
+            output_tokens=delta[1],
+            cache_read_tokens=delta[2],
+            cache_create_tokens=delta[3],
+            cost_estimate=self._estimate_delta_cost(delta),
+        )
+
+    def translate_chapter(self, paragraphs: list[str]) -> list[TranslationResult]:
+        """Translate a list of paragraphs as a chapter."""
+        results = []
+        for para in paragraphs:
+            result = self.translate_rich(para)
+            results.append(result)
+        return results
+
+    # ─── State Accessors ─────────────────────────────────────────────────
+
+    def get_glossary(self) -> dict[str, str]:
+        with self._glossary_lock:
+            return dict(self.glossary)
+
+    def set_glossary(self, glossary: dict[str, str]) -> None:
+        with self._glossary_lock:
+            self.glossary = dict(glossary)
+
+    def get_context(self) -> str:
+        return self.context_summary
+
+    def set_context(self, context: str) -> None:
+        self.context_summary = context
+
+    def get_stats(self) -> TranslationStats:
+        cost, cost_no_cache = self._cost_estimate()
+        return TranslationStats(
+            total_requests=self.total_requests,
+            total_input_tokens=self.total_input_tokens,
+            total_output_tokens=self.total_output_tokens,
+            total_cache_read_tokens=self.total_cache_read_tokens,
+            total_cache_create_tokens=self.total_cache_create_tokens,
+            pass1_only_count=self.pass1_only_count,
+            full_3pass_count=self.full_3pass_count,
+            reviews_ok=self.reviews_ok,
+            reviews_fixed=self.reviews_fixed,
+            chunk_counter=self.chunk_counter,
+            glossary_terms=len(self.glossary),
+            cost_estimate=cost,
+            cost_without_cache=cost_no_cache,
+        )
+
     # ─── Translation Modes ───────────────────────────────────────────────
 
     def _translate_pass1_only(self, text):
         self.pass1_only_count += 1
         rprint(f"  [dim]#{self.chunk_counter} ({len(text)}c) P1[/dim]")
         translation = self._pass1(text)
+        self._fire("on_pass_complete", 1, translation)
+
+        # Track for translate_rich()
+        self._last_passes_used = 1
+        self._last_quality_ok = True
+        self._last_review_text = ""
+
         self._maybe_update_context_glossary(text, translation)
+
+        self._fire("on_chunk_complete", ChunkEvent(
+            chunk_number=self.chunk_counter,
+            original_text=text,
+            translated_text=translation,
+            passes_used=1,
+            quality_ok=True,
+            is_batch=False,
+            paragraph_count=1,
+        ))
+
         return translation
 
     def _translate_3pass(self, text):
@@ -321,18 +491,54 @@ class Claude3Pass(Base):
 
         translation = self._pass1(text)
         rprint(f" [green]P1[/green]", end="")
+        self._fire("on_pass_complete", 1, translation)
 
         review = self._pass2(text, translation)
+        self._fire("on_pass_complete", 2, review)
+
         if self._is_quality_ok(review):
             self.reviews_ok += 1
             rprint(f" [green]P2:OK[/green]")
+
+            self._last_passes_used = 2
+            self._last_quality_ok = True
+            self._last_review_text = review
+
             self._maybe_update_context_glossary(text, translation)
+
+            self._fire("on_chunk_complete", ChunkEvent(
+                chunk_number=self.chunk_counter,
+                original_text=text,
+                translated_text=translation,
+                passes_used=2,
+                quality_ok=True,
+                is_batch=False,
+                paragraph_count=1,
+            ))
+
             return translation
 
         self.reviews_fixed += 1
         refined = self._pass3(text, translation, review)
         rprint(f" [yellow]P2:fix[/yellow] [green]P3[/green]")
+        self._fire("on_pass_complete", 3, refined)
+
+        self._last_passes_used = 3
+        self._last_quality_ok = False
+        self._last_review_text = review
+
         self._maybe_update_context_glossary(text, refined)
+
+        self._fire("on_chunk_complete", ChunkEvent(
+            chunk_number=self.chunk_counter,
+            original_text=text,
+            translated_text=refined,
+            passes_used=3,
+            quality_ok=False,
+            is_batch=False,
+            paragraph_count=1,
+        ))
+
         return refined
 
     def _translate_batch(self, text):
@@ -353,16 +559,27 @@ class Claude3Pass(Base):
 
         translation = self._pass1(delimited, batch_instruction=bi)
         rprint(f" [green]P1[/green]", end="")
+        self._fire("on_pass_complete", 1, translation)
+
+        quality_ok = True
+        review_text = ""
+        passes_used = 1
 
         if not self.skip_review and total_chars >= self.min_review_chars:
             review = self._pass2(delimited, translation, is_batch=True)
+            review_text = review
+            self._fire("on_pass_complete", 2, review)
             if self._is_quality_ok(review):
                 self.reviews_ok += 1
                 rprint(f" [green]P2:OK[/green]")
+                passes_used = 2
             else:
                 self.reviews_fixed += 1
                 translation = self._pass3(delimited, translation, review, batch_instruction=bi)
                 rprint(f" [yellow]P2:fix[/yellow] [green]P3[/green]")
+                self._fire("on_pass_complete", 3, translation)
+                quality_ok = False
+                passes_used = 3
         else:
             rprint(f" [dim]skip review[/dim]")
 
@@ -380,7 +597,23 @@ class Claude3Pass(Base):
             result = "\n".join(padded[:para_count])
             rprint(f"  [dim](padded {len(parts)}→{para_count} paras)[/dim]")
 
+        # Track for translate_rich()
+        self._last_passes_used = passes_used
+        self._last_quality_ok = quality_ok
+        self._last_review_text = review_text
+
         self._maybe_update_context_glossary(text, result)
+
+        self._fire("on_chunk_complete", ChunkEvent(
+            chunk_number=self.chunk_counter,
+            original_text=text,
+            translated_text=result,
+            passes_used=passes_used,
+            quality_ok=quality_ok,
+            is_batch=True,
+            paragraph_count=para_count,
+        ))
+
         if self.chunk_counter % 10 == 0:
             self._print_stats()
         return result
@@ -468,7 +701,9 @@ class Claude3Pass(Base):
                     SYSTEM_CONTEXT.format(language=self.language),
                     msg, 0.3, max_tokens=512, use_cache=False,
                 )
+                self._fire("on_context_update", self.context_summary)
             except Exception as e:
+                self._fire("on_error", e, "context_update")
                 rprint(f"  [dim](context update failed: {e})[/dim]")
 
         if self.chunk_counter % self.glossary_update_interval == 0:
@@ -494,15 +729,18 @@ class Claude3Pass(Base):
                     if valid:
                         with self._glossary_lock:
                             self.glossary.update(valid)
+                        self._fire("on_glossary_update", valid)
                         rprint(f"  [dim]+{len(valid)} glossary terms (total: {len(self.glossary)})[/dim]")
             except json.JSONDecodeError as e:
                 self.glossary_extract_failures += 1
+                self._fire("on_error", e, "glossary_parse")
                 if self.glossary_extract_failures <= 5:
                     rprint(f"  [dim](glossary JSON parse failed: {e})[/dim]")
                 elif self.glossary_extract_failures == 6:
                     rprint(f"  [dim](suppressing further glossary warnings)[/dim]")
             except Exception as e:
                 self.glossary_extract_failures += 1
+                self._fire("on_error", e, "glossary_extraction")
                 if self.glossary_extract_failures <= 3:
                     rprint(f"  [dim](glossary extraction failed: {e})[/dim]")
 
@@ -559,6 +797,7 @@ class Claude3Pass(Base):
                 return "".join(b.text for b in response.content if b.type == "text")
 
             except Exception as e:
+                self._fire("on_error", e, "api_call")
                 err = type(e).__name__
                 if attempt < retries - 1:
                     wait = min(60, 2 ** attempt * (5 if "RateLimit" in err or "rate" in str(e).lower() else 3))
@@ -568,7 +807,7 @@ class Claude3Pass(Base):
                     raise
         raise RuntimeError(f"Failed after {retries} retries")
 
-    # ─── Stats ───────────────────────────────────────────────────────────
+    # ─── Cost Estimation ─────────────────────────────────────────────────
 
     def _cost_estimate(self):
         pricing = {
@@ -592,6 +831,24 @@ class Claude3Pass(Base):
         )
         return cost, cost_no_cache
 
+    def _estimate_delta_cost(self, delta):
+        """Estimate cost for a token usage delta (input, output, cache_read, cache_create)."""
+        pricing = {
+            "claude-opus-4-20250514": {"input": 15.0, "output": 75.0, "cache_read": 1.5, "cache_write": 18.75},
+            "claude-sonnet-4-20250514": {"input": 3.0, "output": 15.0, "cache_read": 0.30, "cache_write": 3.75},
+        }
+        p = pricing.get(self.model, pricing["claude-sonnet-4-20250514"])
+        d_in, d_out, d_cache_read, d_cache_create = delta
+        uncached = d_in - d_cache_read - d_cache_create
+        return (
+            max(0, uncached) / 1e6 * p["input"]
+            + d_out / 1e6 * p["output"]
+            + d_cache_read / 1e6 * p["cache_read"]
+            + d_cache_create / 1e6 * p["cache_write"]
+        )
+
+    # ─── Stats ───────────────────────────────────────────────────────────
+
     def _print_stats(self):
         cost, cost_no_cache = self._cost_estimate()
         saved = cost_no_cache - cost
@@ -603,6 +860,8 @@ class Claude3Pass(Base):
         rprint(f"  P1-only: {self.pass1_only_count} │ 3-pass: {self.full_3pass_count} │ OK: {self.reviews_ok} │ fixed: {self.reviews_fixed}")
         rprint(f"  Glossary: {len(self.glossary)} terms │ Cost: ${cost:.2f}")
         rprint(f"[bold blue]{'─' * 50}[/bold blue]\n")
+
+        self._fire("on_stats", self.get_stats())
 
     def _print_final_stats(self):
         if self.total_requests == 0:
@@ -631,3 +890,5 @@ class Claude3Pass(Base):
         if saved > 1:
             rprint(f"  (Without prompt caching: ${cost_no_cache:.2f})")
         rprint(f"[bold green]{'═' * 55}[/bold green]\n")
+
+        self._fire("on_stats", self.get_stats())

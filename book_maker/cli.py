@@ -419,6 +419,14 @@ So you are close to reaching the limit. You have to choose your own value, there
         help="(3pass mode) Path to a JSON genre profile (e.g. examples/profiles/lovecraft.json). "
              "Controls style, protected nouns, glossary seeds, temperatures, etc.",
     )
+    parser.add_argument(
+        "--orchestrator",
+        dest="orchestrator",
+        action="store_true",
+        help="Use the Claude Agent SDK orchestrator for automated workflow "
+             "(analyze → profile → test → translate → quality check → report). "
+             "Requires claude-agent-sdk>=0.1.34.",
+    )
 
     options = parser.parse_args()
 
@@ -428,6 +436,25 @@ So you are close to reaching the limit. You have to choose your own value, there
     if not os.path.isfile(options.book_name):
         print(f"Error: the book {options.book_name!r} does not exist.")
         exit(1)
+
+    # Orchestrator mode — delegate to Claude Agent SDK workflow
+    if options.orchestrator:
+        import asyncio
+        from orchestrator.orchestrator import run_orchestrator
+
+        model_arg = "auto"
+        if options.model.startswith("3pass"):
+            model_arg = options.model
+
+        asyncio.run(run_orchestrator(
+            book_path=options.book_name,
+            language=options.language,
+            model=model_arg,
+            profile_path=options.translation_profile or "",
+            source_lang=getattr(options, "source_lang", "auto"),
+            resume=options.resume,
+        ))
+        return
 
     PROXY = options.proxy
     if PROXY != "":
