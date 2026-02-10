@@ -1,0 +1,27 @@
+{
+  "source_lang": "en",
+  "target_lang": "de",
+  "style_instructions": "Übersetze in klares, präzises Deutsch, das George Orwells bewusst einfachen und direkten Stil bewahrt. Dies ist eine politische Satire in Form einer Fabel — verwende keine gehobene oder komplizierte Sprache. Die Übersetzung muss die satirische Schärfe und allegorische Kraft des Originals erhalten. Propaganda-Slogans und wiederkehrende Phrasen müssen konsistent und einprägsam sein. Der Ton ist scheinbar naiv, aber die politischen Untertöne müssen deutlich bleiben.",
+  "protected_nouns": [
+    "Napoleon",
+    "Snowball",
+    "Squealer",
+    "Boxer",
+    "Benjamin",
+    "Clover",
+    "Mollie",
+    "Moses",
+    "Mr. Jones",
+    "Mr. Frederick",
+    "Mr. Pilkington",
+    "Manor Farm",
+    "Animal Farm",
+    "Pinchfield",
+    "Foxwood",
+    "Sugarcandy Mountain"
+  ],
+  "temp_translate": 0.2,
+  "temp_review": 0.3,
+  "temp_refine": 0.15,
+  "context_window": 3
+}
