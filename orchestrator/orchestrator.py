@@ -15,10 +15,11 @@ import os
 from pathlib import Path
 
 from claude_agent_sdk import (
-    ClaudeSDKClient,
+    query,
     ClaudeAgentOptions,
     AgentDefinition,
     AssistantMessage,
+    ResultMessage,
     TextBlock,
 )
 
@@ -154,6 +155,7 @@ class TranslationOrchestrator:
         skip_quality_check: bool = False,
         resume: bool = False,
         verbose: bool = False,
+        test_num: int = 0,
     ):
         self.book_path = book_path
         self.language = language
@@ -167,6 +169,7 @@ class TranslationOrchestrator:
         self.skip_quality_check = skip_quality_check
         self.resume = resume
         self.verbose = verbose
+        self.test_num = test_num
 
     async def run(self):
         """Execute the full orchestration workflow."""
@@ -174,9 +177,12 @@ class TranslationOrchestrator:
 
         options = ClaudeAgentOptions(
             mcp_servers={"translation-orchestrator": mcp_server},
-            allowed_tools=TOOL_NAMES + ["Task"],
+            allowed_tools=TOOL_NAMES,
             agents=_get_agents(),
             system_prompt=ORCHESTRATOR_SYSTEM_PROMPT,
+            permission_mode="bypassPermissions",
+            cwd=str(Path.cwd()),
+            max_turns=30,
         )
 
         prompt = self._build_prompt()
@@ -184,18 +190,20 @@ class TranslationOrchestrator:
         print(f"Starting translation orchestrator for: {self.book_path}")
         print(f"Target language: {self.language}")
         print(f"Model: {self.model}")
+        if self.test_num > 0:
+            print(f"Limited to: {self.test_num} paragraphs")
         if self.profile_path:
             print(f"Profile: {self.profile_path}")
         print()
 
-        async with ClaudeSDKClient(options=options) as client:
-            await client.query(prompt)
-
-            async for message in client.receive_response():
-                if isinstance(message, AssistantMessage):
-                    for block in message.content:
-                        if isinstance(block, TextBlock):
-                            print(block.text)
+        async for message in query(prompt=prompt, options=options):
+            if isinstance(message, AssistantMessage):
+                for block in message.content:
+                    if isinstance(block, TextBlock):
+                        print(block.text)
+            elif isinstance(message, ResultMessage):
+                if self.verbose:
+                    print(f"[Result: cost=${message.cost_usd:.4f}]" if hasattr(message, 'cost_usd') else "[Done]")
 
     def _build_prompt(self) -> str:
         """Build the orchestration prompt from CLI options."""
@@ -220,11 +228,16 @@ class TranslationOrchestrator:
             steps.append("1. Analyze the book (metadata, language, genre, cost estimate)")
         if not self.profile_path:
             steps.append("2. Select or create an appropriate translation profile")
-        if not self.skip_test:
-            steps.append("3. Run a test translation (5 paragraphs) and verify quality")
-        steps.append("4. Run the full translation")
+        if self.test_num > 0:
+            steps.append(f"3. Skip separate test — translate {self.test_num} paragraphs "
+                         f"(test_mode=true, test_num={self.test_num})")
+        else:
+            if not self.skip_test:
+                steps.append("3. Run a test translation (5 paragraphs) and verify quality")
+            steps.append("4. Run the full translation")
         if not self.skip_quality_check:
-            steps.append("5. Quality spot-check (10-20 samples)")
+            n = min(5, self.test_num) if self.test_num > 0 else 10
+            steps.append(f"5. Quality spot-check ({n} samples)")
         steps.append("6. Generate a report")
 
         parts.append(f"\nFollow these steps:\n" + "\n".join(steps))

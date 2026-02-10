@@ -70,6 +70,12 @@ def parse_args(argv=None):
         help="Resume interrupted translation",
     )
     parser.add_argument(
+        "--test-num",
+        type=int,
+        default=0,
+        help="Limit translation to N paragraphs (0 = full book, default: 0)",
+    )
+    parser.add_argument(
         "--verbose", "-v",
         action="store_true",
         help="Show all agent messages",
@@ -97,6 +103,7 @@ def main(argv=None):
         skip_quality_check=args.skip_quality_check,
         resume=args.resume,
         verbose=args.verbose,
+        test_num=args.test_num,
     ))
 
 
