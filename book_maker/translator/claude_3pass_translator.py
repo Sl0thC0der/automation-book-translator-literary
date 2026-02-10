@@ -853,42 +853,45 @@ class Claude3Pass(Base):
         cost, cost_no_cache = self._cost_estimate()
         saved = cost_no_cache - cost
 
-        rprint(f"\n[bold blue]─── {self.profile_name} │ chunk {self.chunk_counter} ───[/bold blue]")
-        rprint(f"  API calls: {self.total_requests:,} │ {self.total_input_tokens:,} in / {self.total_output_tokens:,} out")
+        rprint(f"\n[bold blue]--- {self.profile_name} | chunk {self.chunk_counter} ---[/bold blue]")
+        rprint(f"  API calls: {self.total_requests:,} | {self.total_input_tokens:,} in / {self.total_output_tokens:,} out")
         if self.total_cache_read_tokens > 0:
             rprint(f"  Cache: {self.total_cache_read_tokens:,} read / {self.total_cache_create_tokens:,} write (saved ${saved:.2f})")
-        rprint(f"  P1-only: {self.pass1_only_count} │ 3-pass: {self.full_3pass_count} │ OK: {self.reviews_ok} │ fixed: {self.reviews_fixed}")
-        rprint(f"  Glossary: {len(self.glossary)} terms │ Cost: ${cost:.2f}")
-        rprint(f"[bold blue]{'─' * 50}[/bold blue]\n")
+        rprint(f"  P1-only: {self.pass1_only_count} | 3-pass: {self.full_3pass_count} | OK: {self.reviews_ok} | fixed: {self.reviews_fixed}")
+        rprint(f"  Glossary: {len(self.glossary)} terms | Cost: ${cost:.2f}")
+        rprint(f"[bold blue]{'-' * 50}[/bold blue]\n")
 
         self._fire("on_stats", self.get_stats())
 
     def _print_final_stats(self):
         if self.total_requests == 0:
             return
-        cost, cost_no_cache = self._cost_estimate()
-        saved = cost_no_cache - cost
+        try:
+            cost, cost_no_cache = self._cost_estimate()
+            saved = cost_no_cache - cost
 
-        rprint(f"\n[bold green]{'═' * 55}[/bold green]")
-        rprint(f"[bold green]  TRANSLATION COMPLETE — {self.profile_name}[/bold green]")
-        rprint(f"[bold green]{'═' * 55}[/bold green]")
-        rprint(f"  Model: {self.model}")
-        rprint(f"  Language: {self.source_language} → {self.language}")
-        rprint(f"  Chunks translated: {self.chunk_counter}")
-        rprint(f"  API calls: {self.total_requests:,}")
-        rprint(f"  Tokens: {self.total_input_tokens:,} input / {self.total_output_tokens:,} output")
-        if self.total_cache_read_tokens > 0:
-            pct = self.total_cache_read_tokens / max(1, self.total_input_tokens) * 100
-            rprint(f"  Prompt cache hit rate: {pct:.0f}%")
-            rprint(f"  Cache savings: ${saved:.2f}")
-        rprint(f"  Pass 1 only: {self.pass1_only_count} │ Full 3-pass: {self.full_3pass_count}")
-        rprint(f"  Reviews OK: {self.reviews_ok} │ Reviews with fixes: {self.reviews_fixed}")
-        rprint(f"  Glossary terms: {len(self.glossary)}")
-        if self.glossary_extract_failures > 0:
-            rprint(f"  Glossary extraction failures: {self.glossary_extract_failures}")
-        rprint(f"  [bold]Total cost: ${cost:.2f}[/bold]")
-        if saved > 1:
-            rprint(f"  (Without prompt caching: ${cost_no_cache:.2f})")
-        rprint(f"[bold green]{'═' * 55}[/bold green]\n")
+            rprint(f"\n[bold green]{'=' * 55}[/bold green]")
+            rprint(f"[bold green]  TRANSLATION COMPLETE -- {self.profile_name}[/bold green]")
+            rprint(f"[bold green]{'=' * 55}[/bold green]")
+            rprint(f"  Model: {self.model}")
+            rprint(f"  Language: {self.source_language} -> {self.language}")
+            rprint(f"  Chunks translated: {self.chunk_counter}")
+            rprint(f"  API calls: {self.total_requests:,}")
+            rprint(f"  Tokens: {self.total_input_tokens:,} input / {self.total_output_tokens:,} output")
+            if self.total_cache_read_tokens > 0:
+                pct = self.total_cache_read_tokens / max(1, self.total_input_tokens) * 100
+                rprint(f"  Prompt cache hit rate: {pct:.0f}%")
+                rprint(f"  Cache savings: ${saved:.2f}")
+            rprint(f"  Pass 1 only: {self.pass1_only_count} | Full 3-pass: {self.full_3pass_count}")
+            rprint(f"  Reviews OK: {self.reviews_ok} | Reviews with fixes: {self.reviews_fixed}")
+            rprint(f"  Glossary terms: {len(self.glossary)}")
+            if self.glossary_extract_failures > 0:
+                rprint(f"  Glossary extraction failures: {self.glossary_extract_failures}")
+            rprint(f"  [bold]Total cost: ${cost:.2f}[/bold]")
+            if saved > 1:
+                rprint(f"  (Without prompt caching: ${cost_no_cache:.2f})")
+            rprint(f"[bold green]{'=' * 55}[/bold green]\n")
 
-        self._fire("on_stats", self.get_stats())
+            self._fire("on_stats", self.get_stats())
+        except Exception:
+            pass
