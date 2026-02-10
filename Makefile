@@ -1,4 +1,4 @@
-.PHONY: help setup test translate docker-build docker-test clean
+.PHONY: help setup test translate docker-build docker-test docker-build-orchestrator docker-orchestrate docker-orchestrate-test docker-e2e clean
 
 SHELL := /bin/bash
 
@@ -31,6 +31,32 @@ docker-test: ## Run 5-paragraph test in Docker (usage: make docker-test BOOK=boo
 		--book_name /books/$$(basename "$(BOOK)") \
 		-m 3pass-sonnet --single_translate --language de --use_context \
 		--test --test_num 5
+
+docker-build-orchestrator: ## Build orchestrator Docker image
+	docker compose -f docker-compose.yml build orchestrator
+
+docker-orchestrate: ## Run orchestrated translation (usage: make docker-orchestrate BOOK=books/file.epub)
+	@[ -n "$(BOOK)" ] || (echo "Usage: make docker-orchestrate BOOK=books/file.epub [LANG=de] [MODEL=3pass-sonnet]"; exit 1)
+	docker compose -f docker-compose.yml run --rm orchestrator \
+		/books/$$(basename "$(BOOK)") \
+		--language $(or $(LANG),de) \
+		--model $(or $(MODEL),3pass-sonnet) \
+		--profiles-dir /app/profiles \
+		--report-dir /reports
+
+docker-orchestrate-test: ## Test orchestrator on 10 paragraphs
+	@[ -n "$(BOOK)" ] || (echo "Usage: make docker-orchestrate-test BOOK=books/file.epub"; exit 1)
+	docker compose -f docker-compose.yml run --rm orchestrator \
+		/books/$$(basename "$(BOOK)") \
+		--language $(or $(LANG),de) \
+		--model $(or $(MODEL),3pass-sonnet) \
+		--profiles-dir /app/profiles \
+		--report-dir /reports \
+		--test-num 10
+
+docker-e2e: ## Run E2E pipeline test in orchestrator container
+	docker compose -f docker-compose.yml run --rm \
+		--entrypoint python3 orchestrator test_orchestrator_e2e.py
 
 profiles: ## List available translation profiles
 	@echo "Available profiles:"

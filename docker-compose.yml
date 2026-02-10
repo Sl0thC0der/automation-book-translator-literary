@@ -1,6 +1,8 @@
 services:
   translator:
-    build: .
+    build:
+      context: .
+      target: translator
     container_name: book-translator-3pass
     init: true
     environment:
@@ -17,14 +19,36 @@ services:
         reservations:
           memory: 512M
 
-# ─── Usage ───────────────────────────────────────────────────────────────────
+  orchestrator:
+    build:
+      context: .
+      target: orchestrator
+    container_name: book-orchestrator-3pass
+    init: true
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - BBM_CLAUDE_API_KEY=${ANTHROPIC_API_KEY}
+    volumes:
+      - ./books:/books
+      - ./output:/output
+      - ./reports:/reports
+      - ./examples/profiles:/app/profiles:ro
+    entrypoint: ["python3", "run_orchestrator.py"]
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+        reservations:
+          memory: 1G
+
+# --- Usage -----------------------------------------------------------------------
 #
 # Setup:
-#   mkdir -p books output
+#   mkdir -p books output reports
 #   cp your_book.epub books/input.epub
 #   export ANTHROPIC_API_KEY=sk-ant-XXXXX
 #
-# ─── Examples ────────────────────────────────────────────────────────────────
+# --- Translator Examples ---------------------------------------------------------
 #
 # 1. Test on 5 paragraphs first (always do this!):
 #    docker compose run --rm translator \
@@ -67,5 +91,19 @@ services:
 #      --single_translate --language de --use_context \
 #      --resume
 #
+# --- Orchestrator Examples -------------------------------------------------------
+#
+# 7. Orchestrated translation (full automated pipeline):
+#    docker compose run --rm orchestrator \
+#      /books/input.epub -l de -m 3pass-sonnet \
+#      --profiles-dir /app/profiles --report-dir /reports
+#
+# 8. Orchestrator test run (10 paragraphs):
+#    docker compose run --rm orchestrator \
+#      /books/input.epub -l de -m 3pass-sonnet \
+#      --profiles-dir /app/profiles --report-dir /reports \
+#      --test-num 10
+#
 # Output:
 #   Translated .epub appears in ./output/ (or same directory as input)
+#   Orchestrator reports appear in ./reports/
